@@ -1,0 +1,26 @@
+room_occupancy_manager:
+  module: room_occupancy_manager
+  class: RoomOccupancyManager
+  motion_sensors:
+    - binary_sensor.motion_sensor_1
+    - binary_sensor.motion_sensor_2
+  timer_entity: timer.room_timer
+  lights:
+    - light.room_light_1
+    - light.room_light_2
+  doors:
+    - binary_sensor.door_sensor_1
+    - binary_sensor.door_sensor_2
+  room_occupied_on_door_open: true
+  room_occupied_on_door_closed: false
+  sun_elevation_threshold: 4
+  lights_always_turn_on: false
+  light_override: input_boolean.light_override
+  vibration_sensors:
+    - binary_sensor.vibration_sensor_1
+    - binary_sensor.vibration_sensor_2
+  power_sensors:
+    - sensor.power_sensor_1
+    - sensor.power_sensor_2
+  power_usage_threshold: 100
+  weather_entity: weather.home
