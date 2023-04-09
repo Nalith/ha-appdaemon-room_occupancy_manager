@@ -4,6 +4,18 @@
 
 This repository contains a Python script that helps to manage the occupancy of a room using various types of sensors, such as motion sensors, door sensors, light sensors, vibration sensors, and power usage sensors. The script was created using ChatGPT-4, a large language model developed by OpenAI. The purpose of the Room Occupancy Manager is to automate the process of turning on and off lights based on the room's occupancy, time of day, sun elevation, and other factors, providing a more energy-efficient and convenient lighting control system.
 
+## Home Assistant Components
+
+The Room Occupancy Manager script requires the following Home Assistant components to work properly:
+
+1. [Binary Sensor](https://www.home-assistant.io/integrations/binary_sensor/): For motion sensors, door sensors, and vibration sensors.
+2. [Sensor](https://www.home-assistant.io/integrations/sensor/): For power usage sensors and the sun elevation sensor.
+3. [Light](https://www.home-assistant.io/integrations/light/): For controlling the lights in the room.
+4. [Weather](https://www.home-assistant.io/integrations/weather/): For getting the current weather condition, if desired.
+5. [Sun](https://www.home-assistant.io/integrations/sun/): For getting the sun elevation data.
+6. [Zone](https://www.home-assistant.io/integrations/zone/): For determining the home location (latitude and longitude) to calculate the current season.
+7. [Timer](https://www.home-assistant.io/integrations/timer/): For managing the room occupancy timer.
+
 ## Overview
 
 The script is designed to work with the AppDaemon platform, which allows you to run Python apps that interact with the Home Assistant automation platform. The Room Occupancy Manager script provides a class called `RoomOccupancyManager` that inherits from `hass.Hass`. This class contains various methods for handling sensor events and automating light control.
