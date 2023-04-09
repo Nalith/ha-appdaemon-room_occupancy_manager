@@ -39,7 +39,7 @@ The main features of the Room Occupancy Manager include:
 
 ## Acknowledgements
 
-This script was created using ChatGPT-4, a large language model developed by OpenAI. We would like to express our gratitude to the OpenAI team for providing this powerful AI tool that helped us in the creation of this automation script.
+This script was created using ChatGPT-4, a large language model developed by OpenAI. I would like to express my gratitude to the OpenAI team for providing this powerful AI tool that helped me in the creation of this automation script.
 
 ## License
 
