@@ -1,46 +1,52 @@
 # Room Occupancy Manager
 
 ## Introduction
-
-This repository contains a Python script that helps to manage the occupancy of a room using various types of sensors, such as motion sensors, door sensors, light sensors, vibration sensors, and power usage sensors. The script was created using ChatGPT-4, a large language model developed by OpenAI. The purpose of the Room Occupancy Manager is to automate the process of turning on and off lights based on the room's occupancy, time of day, sun elevation, and other factors, providing a more energy-efficient and convenient lighting control system.
+The Room Occupancy Manager is an AppDaemon script designed for Home Assistant that intelligently manages room occupancy by controlling lights based on motion, door, vibration, and power usage sensors. This script offers a flexible and powerful way to automate your smart home's lighting, accounting for various conditions like weather, sunrise, and sunset times. With this script, you can enhance the responsiveness of your smart home system and create a more comfortable living environment.
 
 ## Home Assistant Components
+The script interacts with several Home Assistant components, offering a versatile approach to managing room occupancy and lighting control. The components used in the script include:
 
-The Room Occupancy Manager script requires the following Home Assistant components to work properly:
-
-1. [Binary Sensor](https://www.home-assistant.io/integrations/binary_sensor/): For motion sensors, door sensors, and vibration sensors.
-2. [Sensor](https://www.home-assistant.io/integrations/sensor/): For power usage sensors and the sun elevation sensor.
-3. [Light](https://www.home-assistant.io/integrations/light/): For controlling the lights in the room.
-4. [Weather](https://www.home-assistant.io/integrations/weather/): For getting the current weather condition, if desired.
-5. [Sun](https://www.home-assistant.io/integrations/sun/): For getting the sun elevation data.
-6. [Zone](https://www.home-assistant.io/integrations/zone/): For determining the home location (latitude and longitude) to calculate the current season.
-7. [Timer](https://www.home-assistant.io/integrations/timer/): For managing the room occupancy timer.
+- Motion sensors: Detect movement in a room and trigger the script to turn on the lights.
+- Door sensors: Monitor the opening and closing of doors, allowing the script to respond accordingly.
+- Light entities: Control the state of individual light entities, turning them on or off based on occupancy and other conditions.
+- Vibration sensors: Detect vibrations from appliances or furniture, which may indicate room occupancy.
+- Power usage sensors: Monitor the power consumption of devices in a room, providing another indicator of occupancy.
+- Timer entities: Manage the duration of room occupancy and control when lights turn on and off.
+- Weather entities: Respond to weather changes, adjusting lighting to suit the conditions.
 
 ## Overview
+The Room Occupancy Manager script listens for changes in the state of the specified sensors and entities. When an event occurs, such as motion detected, door opened, vibration sensed, or power usage increased, the script starts a timer. While the timer is active, the lights are turned on. When the timer is idle, the lights are turned off.
 
-The script is designed to work with the AppDaemon platform, which allows you to run Python apps that interact with the Home Assistant automation platform. The Room Occupancy Manager script provides a class called `RoomOccupancyManager` that inherits from `hass.Hass`. This class contains various methods for handling sensor events and automating light control.
+The script can also account for weather conditions, like rain or pouring, adjusting the lighting accordingly. Moreover, it considers sunrise and sunset times, offering more fine-grained control over when lights are turned on. With a combination of sensors and conditions, the Room Occupancy Manager provides an efficient and intelligent way to manage your home's lighting.
 
-The main features of the Room Occupancy Manager include:
+## Configuration
+To use the Room Occupancy Manager script, you must configure the required parameters in your `apps.yaml` file. The following example configuration demonstrates the necessary parameters and their usage:
 
-- Turning on lights when motion is detected: The script listens for motion sensor events and turns on the lights when motion is detected in the room.
-- Turning on lights when a door is opened (configurable): If configured, the script will also turn on the lights when a door sensor indicates that the door has been opened.
-- Turning on lights when the sun elevation is below a configurable threshold: The script checks the sun's elevation and turns on the lights when the elevation is below the specified threshold. This ensures that the lights are only turned on when natural lighting is insufficient.
-- Adjusting the sun elevation threshold based on the current season: The script calculates the current season based on the home's latitude and adjusts the sun elevation threshold accordingly. This takes into account the seasonal changes in sunlight availability.
-- Turning on lights when the weather is rainy or pouring (configurable): If configured, the script will turn on the lights when the weather entity indicates that it is raining or pouring outside, providing better lighting conditions during poor weather.
-- Turning off lights when the room is unoccupied for a certain amount of time: The script utilizes a timer that is reset every time a relevant sensor event occurs (e.g., motion detected, door opened, etc.). If the timer expires without any new sensor events, the script assumes that the room is unoccupied and turns off the lights.
-- Overriding the light automation with a manual control: The script allows for a manual override of the automated light control. When the override is active, the lights can be controlled manually without being affected by the automation.
-
-## Usage
-
-1. Install AppDaemon following the official [AppDaemon installation instructions](https://appdaemon.readthedocs.io/en/latest/INSTALL.html).
-2. Clone this repository or copy the `room_occupancy_manager.py` script to your AppDaemon apps folder.
-3. Configure the script in your `apps.yaml` file, providing the required parameters (motion sensors, door sensors, light sensors, etc.).
-4. Start AppDaemon and ensure the Room Occupancy Manager app is running.
-
-## Acknowledgements
-
-This script was created using ChatGPT-4, a large language model developed by OpenAI. I would like to express my gratitude to the OpenAI team for providing this powerful AI tool that helped me in the creation of this automation script.
-
-## License
-
-This project is licensed under the MIT License. Please see the [LICENSE](LICENSE) file for details.
+```yaml
+room_occupancy_manager:
+  module: room_occupancy_manager
+  class: RoomOccupancyManager
+  motion_sensors:
+    - binary_sensor.motion_sensor_1
+    - binary_sensor.motion_sensor_2
+  timer_entity: timer.room_timer
+  lights:
+    - light.light_1
+    - light.light_2
+  doors:
+    - binary_sensor.door_sensor_1
+    - binary_sensor.door_sensor_2
+  room_occupied_on_door_open: true
+  room_occupied_on_door_closed: false
+  lights_always_turn_on: false
+  light_override: input_boolean.light_override
+  vibration_sensors:
+    - binary_sensor.vibration_sensor_1
+    - binary_sensor.vibration_sensor_2
+  power_sensors:
+    - sensor.power_sensor_1
+    - sensor.power_sensor_2
+  power_usage_threshold: 10
+  weather_entity: weather.home
+  sunrise_offset_minutes: 30
+  sunset_offset_minutes: -30
