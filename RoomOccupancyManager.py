@@ -6,9 +6,6 @@ import pytz
 class RoomOccupancyManager(hass.Hass):
 
     def initialize(self):
-        self.status_sensor = f"sensor.{self.name.lower().replace(' ', '_')}_app_status"
-        self.set_state(self.status_sensor, state="running")
-
         # Get required parameters from configuration
         self.motion_sensors = self.args["motion_sensors"]
         self.timer_entity = self.args["timer_entity"]
@@ -16,13 +13,14 @@ class RoomOccupancyManager(hass.Hass):
         self.doors = self.args["doors"]
         self.room_occupied_on_door_open = self.args["room_occupied_on_door_open"]
         self.room_occupied_on_door_closed = self.args["room_occupied_on_door_closed"]
-        self.sun_elevation_threshold = self.args["sun_elevation_threshold"]
         self.lights_always_turn_on = self.args["lights_always_turn_on"]
         self.light_override = self.args["light_override"]
         self.vibration_sensors = self.args["vibration_sensors"]
         self.power_sensors = self.args["power_sensors"]
         self.power_usage_threshold = self.args["power_usage_threshold"]
         self.weather_entity = self.args["weather_entity"]
+        self.sunrise_offset_minutes = self.args.get("sunrise_offset_minutes", 30)
+        self.sunset_offset_minutes = self.args.get("sunset_offset_minutes", -30)        
 
         # Set the sensor duration threshold (in seconds)
         self.sensor_duration_threshold = 1 * 60  # 1 minute in seconds
@@ -56,37 +54,9 @@ class RoomOccupancyManager(hass.Hass):
         # Run the check_sensors function every 5 minutes
         self.run_every(self.check_sensors, "now", 5 * 60)  # Check sensors every 5 minutes
 
-        # Set up listener for sun elevation changes
-        self.listen_state(self.sun_elevation_changed, "sun.sun", attribute="elevation")
-
-    # Function to get home location (latitude and longitude)
-    def get_home_location(self):
-        latitude = float(self.get_state("zone.home", attribute="latitude"))
-        longitude = float(self.get_state("zone.home", attribute="longitude"))
-        return latitude, longitude
-
-    # Function to determine the current season based on location and date
-    def get_current_season(self):
-        latitude, _ = self.get_home_location()
-        month = self.datetime().month
-        if latitude >= 0:  # Northern Hemisphere
-            if 3 <= month < 6:
-                return "spring"
-            elif 6 <= month < 9:
-                return "summer"
-            elif 9 <= month < 12:
-                return "autumn"
-            else:
-                return "winter"
-        else:  # Southern Hemisphere
-            if 3 <= month < 6:
-                return "autumn"
-            elif 6 <= month < 9:
-                return "winter"
-            elif 9 <= month < 12:
-                return "spring"
-            else:
-                return "summer"
+        # Set up sunrise and sunset listeners with the specified offset values
+        self.run_at_sunrise(self.sunrise_callback, offset=self.sunrise_offset_minutes*60)  # Convert minutes to seconds
+        self.run_at_sunset(self.sunset_callback, offset=self.sunset_offset_minutes*60)  # Convert minutes to seconds
 
     # Function called when motion is detected
     def motion_detected(self, entity, attribute, old, new, kwargs):
@@ -117,7 +87,6 @@ class RoomOccupancyManager(hass.Hass):
         if new == "active" and old != "active":
             self.turn_on_lights()
         elif new == "idle" and old != "idle":
-            self.log("Room is unoccupied")
             self.turn_off_lights()
 
     # Function to check sensors periodically
@@ -145,41 +114,47 @@ class RoomOccupancyManager(hass.Hass):
     def weather_changed(self, entity, attribute, old, new, kwargs):
         timer_state = self.get_state(self.timer_entity)
         if timer_state == "active" and (new == "rainy" or new == "pouring"):
-            self.turn_on_lights(ignore_sun_elevation=True)
+            self.turn_on_lights(ignore_time_constraint=True)
 
-    # Function called when sun elevation changes
-    def sun_elevation_changed(self, entity, attribute, old, new, kwargs):
-        sun_elevation = float(new)
+    # Function called at sunrise
+    def sunrise_callback(self, kwargs):
         light_override_state = self.get_state(self.light_override)
-
-        current_sun_elevation_threshold = self.get_sun_elevation_threshold_with_season_offset()
-
-        if sun_elevation < current_sun_elevation_threshold and not self.lights_always_turn_on and light_override_state == "off":
-            self.turn_on_lights()
-        elif sun_elevation > current_sun_elevation_threshold and not self.lights_always_turn_on and light_override_state == "off":
+        if not self.lights_always_turn_on and light_override_state == "off":
             self.turn_off_lights()
 
-    # Function to get the sun elevation threshold with season offset
-    def get_sun_elevation_threshold_with_season_offset(self):
-        season = self.get_current_season()
-        if season == "autumn" or season == "spring":
-            return self.sun_elevation_threshold + 1
-        elif season == "winter":
-            return self.sun_elevation_threshold + 2
-        else:
-            return self.sun_elevation_threshold
+    # Function called at sunset
+    def sunset_callback(self, kwargs):
+        light_override_state = self.get_state(self.light_override)
+        if not self.lights_always_turn_on and light_override_state == "off":
+            self.turn_on_lights()
+
+    # Function to calculate sunset time with an offset value
+    def is_after_sunset_with_offset(self):
+        sunset_time = self.sunset()
+        sunset_with_offset = sunset_time + timedelta(minutes=self.sunset_offset_minutes)
+        now = self.datetime()
+
+        return now >= sunset_with_offset
+
+    # Function to calculate sunrise time with an offset value
+    def is_before_sunrise_with_offset(self):
+        sunrise_time = self.sunrise()
+        sunrise_with_offset = sunrise_time + timedelta(minutes=self.sunrise_offset_minutes)
+        now = self.datetime()
+
+        return now < sunrise_with_offset
 
     # Function to turn on lights based on conditions
-    def turn_on_lights(self, ignore_sun_elevation=False):
+    def turn_on_lights(self, ignore_time_constraint=False):
         light_override_state = self.get_state(self.light_override)
+        print(self.is_before_sunrise_with_offset())
         if light_override_state == "off":
-            if ignore_sun_elevation:
+            if ignore_time_constraint:
                 for light in self.lights:
                     if self.get_state(light) == "off":
                         self.turn_on(light)
             else:
-                sun_elevation = float(self.get_state("sun.sun", attribute="elevation"))
-                if self.lights_always_turn_on or sun_elevation < self.sun_elevation_threshold:
+                if self.lights_always_turn_on or (self.is_after_sunset_with_offset() and self.is_before_sunrise_with_offset()):
                     for light in self.lights:
                         if self.get_state(light) == "off":
                             self.turn_on(light)
