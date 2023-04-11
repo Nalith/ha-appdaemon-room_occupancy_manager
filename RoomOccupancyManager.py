@@ -134,7 +134,7 @@ class RoomOccupancyManager(hass.Hass):
         sunset_with_offset = sunset_time + timedelta(minutes=self.sunset_offset_minutes)
         now = self.datetime()
 
-        return now >= sunset_with_offset
+        return now >= sunset_with_offset or self.sun_down()
 
     # Function to calculate sunrise time with an offset value
     def is_before_sunrise_with_offset(self):
@@ -147,7 +147,6 @@ class RoomOccupancyManager(hass.Hass):
     # Function to turn on lights based on conditions
     def turn_on_lights(self, ignore_time_constraint=False):
         light_override_state = self.get_state(self.light_override)
-        print(self.is_before_sunrise_with_offset())
         if light_override_state == "off":
             if ignore_time_constraint:
                 for light in self.lights:
