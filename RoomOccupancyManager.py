@@ -60,33 +60,45 @@ class RoomOccupancyManager(hass.Hass):
 
     # Function called when motion is detected
     def motion_detected(self, entity, attribute, old, new, kwargs):
+        self.log(f"Motion detected by {entity}, starting occupancy timer.", log="room_occupancy_manager")
         self.call_service("timer/start", entity_id=self.timer_entity)
 
     # Function called when a door is opened
     def door_opened(self, entity, attribute, old, new, kwargs):
         if self.room_occupied_on_door_open:
+            self.log(f"Door {entity} opened, starting occupancy timer.", log="room_occupancy_manager")
             self.call_service("timer/start", entity_id=self.timer_entity)
 
     # Function called when a light is turned on
     def light_turned_on(self, entity, attribute, old, new, kwargs):
         timer_state = self.get_state(self.timer_entity)
         if timer_state == "idle":
+            self.log(f"Light {entity} turned on, starting occupancy timer.", log="room_occupancy_manager")
             self.call_service("timer/start", entity_id=self.timer_entity)
 
     # Function called when vibration is detected
     def vibration_detected(self, entity, attribute, old, new, kwargs):
+        self.log(f"Vibration detected by {entity}, starting occupancy timer.", log="room_occupancy_manager")
         self.call_service("timer/start", entity_id=self.timer_entity)
 
     # Function called when power usage changes
     def power_usage_changed(self, entity, attribute, old, new, kwargs):
         if float(new) > self.power_usage_threshold:
+            self.log(f"Power usage of {entity} exceeded threshold, starting occupancy timer.", log="room_occupancy_manager")
             self.call_service("timer/start", entity_id=self.timer_entity)
 
     # Function called when timer state changes
     def timer_state_changed(self, entity, attribute, old, new, kwargs):
         if new == "active" and old != "active":
-            self.turn_on_lights()
+            weather_state = self.get_state(self.weather_entity)
+            if weather_state == "rainy" or weather_state == "pouring" or weather_state == "fog":
+                self.log(f"Weather is {weather_state}, turning on lights regardless of time constraints.", log="room_occupancy_manager")
+                self.turn_on_lights(ignore_time_constraint=True)
+            else:
+                self.log(f"Timer became active, turning on lights.", log="room_occupancy_manager")
+                self.turn_on_lights()
         elif new == "idle" and old != "idle":
+            self.log(f"Timer became idle, turning off lights.", log="room_occupancy_manager")
             self.turn_off_lights()
 
     # Function to check sensors periodically
@@ -110,10 +122,15 @@ class RoomOccupancyManager(hass.Hass):
                     self.call_service("timer/start", entity_id=self.timer_entity)
                     break
 
+        #weather_state = self.get_state(self.weather_entity)
+        #timer_state = self.get_state(self.timer_entity)
+        #if timer_state == "active" and (weather_state == "rainy" or weather_state == "pouring" or weather_state == "fog"):
+            #self.turn_on_lights(ignore_time_constraint=True)
+
     # Function called when weather changes
     def weather_changed(self, entity, attribute, old, new, kwargs):
         timer_state = self.get_state(self.timer_entity)
-        if timer_state == "active" and (new == "rainy" or new == "pouring"):
+        if timer_state == "active" and (new == "rainy" or new == "pouring" or new == "fog"):
             self.turn_on_lights(ignore_time_constraint=True)
 
     # Function called at sunrise
@@ -130,7 +147,7 @@ class RoomOccupancyManager(hass.Hass):
 
     # Function to calculate sunset time with an offset value
     def is_after_sunset_with_offset(self):
-        sunset_time = self.sunset()
+        sunset_time = self.sunset(today=True)
         sunset_with_offset = sunset_time + timedelta(minutes=self.sunset_offset_minutes)
         now = self.datetime()
 
@@ -149,19 +166,28 @@ class RoomOccupancyManager(hass.Hass):
         light_override_state = self.get_state(self.light_override)
         if light_override_state == "off":
             if ignore_time_constraint:
+                self.log("Turning on lights without considering time constraints.", log="room_occupancy_manager")
                 for light in self.lights:
                     if self.get_state(light) == "off":
+                        self.log(f"Turning on light {light}.")
                         self.turn_on(light)
             else:
-                if self.lights_always_turn_on or (self.is_after_sunset_with_offset() and self.is_before_sunrise_with_offset()):
+                # Use the offset values for sunset and sunrise
+                sunset_offset_str = f"sunset {'+ ' if self.sunset_offset_minutes >= 0 else '- '}{abs(self.sunset_offset_minutes) // 60:02d}:{abs(self.sunset_offset_minutes) % 60:02d}:00"
+                sunrise_offset_str = f"sunrise {'+ ' if self.sunrise_offset_minutes >= 0 else '- '}{abs(self.sunrise_offset_minutes) // 60:02d}:{abs(self.sunrise_offset_minutes) % 60:02d}:00"
+                if self.lights_always_turn_on or self.now_is_between(sunset_offset_str, sunrise_offset_str):
+                    self.log("Turning on lights based on time constraints.", log="room_occupancy_manager")
                     for light in self.lights:
                         if self.get_state(light) == "off":
+                            self.log(f"Turning on light {light}.", log="room_occupancy_manager")
                             self.turn_on(light)
 
     # Function to turn off lights based on conditions
     def turn_off_lights(self):
         light_override_state = self.get_state(self.light_override)
         if light_override_state == "off":
+            self.log("Turning off lights based on conditions.", log="room_occupancy_manager")
             for light in self.lights:
                 if self.get_state(light) == "on":
+                    self.log(f"Turning off light {light}.", log="room_occupancy_manager")
                     self.turn_off(light)
